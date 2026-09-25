@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #F3FAFD;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0d2540; }
+::-webkit-scrollbar-thumb { background: #0866C6; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #18BFEF; }
+
+/* Range input styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-track {
+  height: 4px;
+  background: #1a3a5c;
+  border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #18BFEF;
+  margin-top: -6px;
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: #1a3a5c;
+  border-radius: 2px;
+}
+input[type="range"]::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #18BFEF;
+  cursor: pointer;
+  border: none;
+}
