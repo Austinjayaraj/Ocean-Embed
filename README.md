@@ -1,32 +1,84 @@
-# React + TypeScript + Vite
+# 🌊 OceanEmbed
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+### AI-Powered Subsurface Ocean Intelligence Prototype
 
-Currently, two official plugins are available:
+OceanEmbed is a frontend prototype that demonstrates an AI-powered workflow for reconstructing subsurface ocean temperature from surface observations.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Prototype
 
-## React Compiler
+The current prototype demonstrates the complete OceanEmbed user experience through an interactive dashboard.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Dashboard
+- OceanEmbed overview
+- SIH 2026 project introduction
+- Interactive ocean map
+- System KPIs
+- Temperature snapshot
+- Pipeline overview
+- Quick navigation to core modules
 
-## Expanding the Oxlint configuration
+### Ocean Explorer
+- Interactive location selection
+- Surface ocean observations
+- SST, SSS, SLA, Current U/V and Wind U/V
+- Animated reconstruction process
+- Surface Observations → Ocean Encoder → Ocean Embedding → Depth Decoder → Subsurface Temperature
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+### Temperature Profile
+- Temperature vs depth visualization
+- 0–1000 m ocean profile
+- 15 required depth levels
+- Depth-wise temperature table
+- Prediction/error visualization
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+### 3D Ocean X-Ray
+- Interactive Three.js ocean volume
+- Rotating 3D visualization
+- Depth layers
+- Depth slider
+- ARGO reference points
+- Temperature visualization from surface to 1000 m
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+### Subsurface Anomalies
+- Expected State → Reconstructed State → Difference → Anomaly workflow
+- Regional anomaly cards
+- Depth profile visualization
+- Regional anomaly distribution
+- Anomaly filtering
+
+### ARGO Validation
+- GLORYS shown as the training target
+- ARGO shown as independent validation
+- Prediction vs ARGO comparison
+- RMSE, bias and correlation metrics
+- Depth-wise validation visualization
+
+### Pipeline
+- n8n-style pipeline visualization
+- Data Sources → n8n → Python/Xarray → FastAPI → PyTorch → PostgreSQL → Dashboard
+- Pipeline step monitoring
+- Data source status
+
+### System
+- Service health monitoring
+- System timeline
+- Architecture visualization
+- Component status
+
+## 🛠️ Tech Stack
+
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- Framer Motion
+- Three.js
+- React Three Fiber
+
+## 📌 Prototype Status
+
+This is currently a **frontend demonstration prototype**.
+
+The interface uses illustrative demo data to demonstrate the OceanEmbed workflow, visualizations, validation concept and overall user experience.
+
+**OceanEmbed — From Surface Observations to Subsurface Ocean Intelligence.**
