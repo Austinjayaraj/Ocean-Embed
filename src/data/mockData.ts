@@ -13,6 +13,7 @@ import type {
 
 // ─── Locations ───────────────────────────────────────────────
 export const locations: OceanLocation[] = [
+  { lat: 15.25, lng: 88.75, name: 'Bay of Bengal', region: 'Bay of Bengal' },
   { lat: 12.0, lng: 85.0, name: 'Bay of Bengal – Central', region: 'Bay of Bengal' },
   { lat: 15.0, lng: 82.0, name: 'Bay of Bengal – Northwest', region: 'Bay of Bengal' },
   { lat: 8.0, lng: 88.0, name: 'Bay of Bengal – South', region: 'Bay of Bengal' },
@@ -22,6 +23,7 @@ export const locations: OceanLocation[] = [
   { lat: 20.0, lng: 64.0, name: 'Arabian Sea – Northwest', region: 'Arabian Sea' },
   { lat: 10.0, lng: 72.0, name: 'Lakshadweep Sea', region: 'Arabian Sea' },
   { lat: 5.0, lng: 75.0, name: 'Indian Ocean – Equatorial', region: 'North Indian Ocean' },
+  { lat: 6.5, lng: 81.5, name: 'Sri Lanka Basin', region: 'North Indian Ocean' },
   { lat: -2.0, lng: 78.0, name: 'Indian Ocean – Southern', region: 'North Indian Ocean' },
 ];
 
@@ -102,22 +104,48 @@ export const defaultProfile: TemperatureProfile = {
 
 // ─── Ocean Observations ──────────────────────────────────────
 export function getOceanObservation(location: OceanLocation, _date?: string): OceanObservation {
+  if (location.lat === 15.25 && location.lng === 88.75) {
+    return {
+      location,
+      date: _date || '2026-09-18',
+      sst: 28.4,
+      sss: 34.8,
+      sla: 0.12,
+      uCurrent: 0.28,
+      vCurrent: -0.15,
+      uWind: 4.2,
+      vWind: 2.8,
+      currentSpeed: 0.32,
+      windSpeed: 5.0,
+    };
+  }
+
+  // Deterministic seed based on coordinates
+  const seed = Math.abs(Math.sin(location.lat * 12.9898 + location.lng * 78.233));
   const baseSst =
-    location.region === 'Bay of Bengal' ? 28.5 + Math.random() * 1.2 :
-    location.region === 'Arabian Sea' ? 27.5 + Math.random() * 1.5 : 28.0 + Math.random() * 1.0;
+    location.region === 'Bay of Bengal' ? 28.3 + seed * 0.9 :
+    location.region === 'Arabian Sea' ? 27.6 + seed * 1.2 : 28.1 + seed * 0.8;
+  const baseSss =
+    location.region === 'Bay of Bengal' ? 33.2 + seed * 1.4 :
+    location.region === 'Arabian Sea' ? 35.4 + seed * 1.2 : 34.5 + seed * 0.8;
+
+  const uCurr = Math.round((seed * 0.6 - 0.25) * 100) / 100;
+  const vCurr = Math.round(((seed * 1.7 % 1) * 0.5 - 0.2) * 100) / 100;
+  const uW = Math.round((2.0 + seed * 4.5) * 10) / 10;
+  const vW = Math.round((1.5 + (seed * 2.3 % 1) * 3.5) * 10) / 10;
 
   return {
     location,
     date: _date || '2026-09-18',
     sst: Math.round(baseSst * 10) / 10,
-    sss: Math.round((33.5 + Math.random() * 2) * 10) / 10,
-    sla: Math.round((Math.random() * 0.4 - 0.1) * 100) / 100,
-    uCurrent: Math.round((Math.random() * 0.6 - 0.3) * 100) / 100,
-    vCurrent: Math.round((Math.random() * 0.5 - 0.2) * 100) / 100,
-    uWind: Math.round((Math.random() * 8 - 2) * 10) / 10,
-    vWind: Math.round((Math.random() * 6 - 1) * 10) / 10,
-    currentSpeed: Math.round((0.2 + Math.random() * 0.4) * 100) / 100,
-    windSpeed: Math.round((3 + Math.random() * 6) * 10) / 10,
+    sss: Math.round(baseSss * 10) / 10,
+    sla: Math.round((seed * 0.28 - 0.08) * 100) / 100,
+    uCurrent: uCurr,
+    vCurrent: vCurr,
+    uWind: uW,
+    vWind: vW,
+    currentSpeed: Math.round(Math.sqrt(uCurr * uCurr + vCurr * vCurr) * 100) / 100,
+    windSpeed: Math.round(Math.sqrt(uW * uW + vW * vW) * 10) / 10,
   };
 }
 

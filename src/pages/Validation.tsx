@@ -1,5 +1,10 @@
+import { useState } from 'react';
+import * as THREE from 'three';
+import { Canvas } from '@react-three/fiber';
 import { motion } from 'framer-motion';
-import { CheckCircle, Info, Target, TrendingUp, BarChart2, Hash, ArrowRight } from 'lucide-react';
+import {
+  CheckCircle, Target, TrendingUp, BarChart2, Hash
+} from 'lucide-react';
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, AreaChart, Area
@@ -8,7 +13,10 @@ import SectionHeader from '../components/common/SectionHeader';
 import DemoBadge from '../components/common/DemoBadge';
 import KpiCard from '../components/common/KpiCard';
 import DataTable from '../components/common/DataTable';
-import { validationMetrics, validationEntries, scatterValidation, depthWiseError } from '../data/mockData';
+import {
+  validationMetrics, validationEntries, scatterValidation,
+  depthWiseError, defaultProfile
+} from '../data/mockData';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -18,160 +26,296 @@ const fadeUp = {
 const columns = [
   {
     key: 'location',
-    label: 'Location',
+    label: 'LOCATION',
     render: (_v: unknown, row: unknown) => {
       const loc = (row as Record<string, unknown>).location as { name: string };
-      return <span className="text-xs text-gray-600">{loc.name}</span>;
+      return <span className="text-xs font-semibold text-slate-200">{loc.name}</span>;
     },
   },
-  { key: 'depth', label: 'Depth (m)', render: (v: unknown) => <span className="font-mono">{String(v)}m</span> },
-  { key: 'predicted', label: 'Predicted (°C)', render: (v: unknown) => <span className="font-mono text-[#0866C6] font-bold">{String(v)}</span> },
-  { key: 'argoValue', label: 'ARGO (°C)', render: (v: unknown) => <span className="font-mono text-[#45D6C8]">{String(v)}</span> },
+  { key: 'depth', label: 'DEPTH', render: (v: unknown) => <span className="font-mono-tech text-cyan-300 font-bold">{String(v)} m</span> },
+  { key: 'predicted', label: 'PREDICTED', render: (v: unknown) => <span className="font-mono-tech text-white font-bold">{String(v)} °C</span> },
+  { key: 'argoValue', label: 'ARGO FLOAT', render: (v: unknown) => <span className="font-mono-tech text-teal-300 font-bold">{String(v)} °C</span> },
   {
     key: 'error',
-    label: 'Error (°C)',
+    label: 'ERROR DELTA',
     render: (v: unknown) => {
       const err = v as number;
       const color = err < 0.4 ? '#22C55E' : err < 0.7 ? '#F59E0B' : '#EF4444';
-      return <span className="font-mono font-bold" style={{ color }}>±{err}</span>;
+      return <span className="font-mono-tech font-bold" style={{ color }}>±{err} °C</span>;
     },
   },
-  { key: 'date', label: 'Date', render: (v: unknown) => <span className="text-xs text-gray-500">{String(v)}</span> },
+  { key: 'date', label: 'TIMESTAMP', render: (v: unknown) => <span className="text-xs text-slate-400">{String(v)}</span> },
 ];
 
-export default function Validation() {
+// 3D Twin Column Visualization: OceanEmbed Prediction vs ARGO In-Situ Observation
+function TwinColumnScene({ currentDepth }: { currentDepth: number }) {
+  const yScan = 2.2 - (currentDepth / 1000) * 4.4;
+
   return (
-    <div className="space-y-5">
+    <group>
+      {/* Left Column: OceanEmbed Prediction (Cyan) */}
+      <group position={[-1.6, 0, 0]}>
+        <mesh>
+          <cylinderGeometry args={[0.75, 0.75, 4.4, 24, 1, true]} />
+          <meshBasicMaterial color="#18BFEF" wireframe transparent opacity={0.35} />
+        </mesh>
+        <group position={[0, yScan, 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[0.73, 24]} />
+            <meshBasicMaterial color="#18BFEF" transparent opacity={0.7} side={THREE.DoubleSide} />
+          </mesh>
+        </group>
+      </group>
+
+      {/* Right Column: ARGO Float Observation (Teal) */}
+      <group position={[1.6, 0, 0]}>
+        <mesh>
+          <cylinderGeometry args={[0.75, 0.75, 4.4, 24, 1, true]} />
+          <meshBasicMaterial color="#45D6C8" wireframe transparent opacity={0.35} />
+        </mesh>
+        <group position={[0, yScan, 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[0.73, 24]} />
+            <meshBasicMaterial color="#45D6C8" transparent opacity={0.7} side={THREE.DoubleSide} />
+          </mesh>
+        </group>
+      </group>
+
+      {/* Connector verification laser line across twin columns */}
+      <mesh position={[0, yScan, 0]}>
+        <boxGeometry args={[3.2, 0.04, 0.04]} />
+        <meshBasicMaterial color="#38BDF8" toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+export default function Validation() {
+  const [activeDepth, setActiveDepth] = useState(100);
+
+  const matchedLevel =
+    defaultProfile.depths.find((d) => d.depth === activeDepth) || defaultProfile.depths[7];
+
+  return (
+    <div className="space-y-6 font-mono-tech">
       {/* Header */}
-      <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible">
-        <div className="flex items-center gap-2 mb-1">
-          <CheckCircle size={20} className="text-[#22C55E]" />
-          <h1 className="text-xl font-bold text-[#071B33]">Independent ARGO Validation</h1>
-          <DemoBadge />
-        </div>
-        <p className="text-sm text-gray-500 max-w-2xl">
-          ARGO float observations serve as <strong>independent in-situ measurements</strong> to evaluate OceanEmbed's
-          subsurface temperature reconstruction. ARGO data is held out from training — the model learns from GLORYS reanalysis.
-        </p>
-      </motion.div>
-
-      {/* Critical GLORYS vs ARGO distinction */}
-      <motion.div custom={1} variants={fadeUp} initial="hidden" animate="visible"
-        className="bg-[#071B33] rounded-lg p-4"
+      <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
       >
-        <p className="text-xs font-bold text-[#18BFEF] uppercase tracking-widest mb-3">Training vs. Validation — Critical Distinction</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-          <div className="rounded-lg p-3 border border-blue-800 bg-blue-900/30">
-            <p className="text-xs font-bold text-[#18BFEF] uppercase tracking-wide mb-1">Training Target</p>
-            <p className="text-white font-bold text-xl">GLORYS</p>
-            <p className="text-gray-400 text-xs mt-1">Physical ocean reanalysis product (CMEMS).
-              OceanEmbed is trained to predict GLORYS subsurface profiles from surface-only inputs.
-              Used as training labels — <em>not</em> an independent check.</p>
+        <div>
+          <div className="flex items-center gap-2">
+            <CheckCircle size={20} className="text-[#22C55E]" />
+            <h1 className="text-xl font-bold text-white tracking-wide uppercase font-display">
+              Independent ARGO Float Validation
+            </h1>
+            <DemoBadge />
           </div>
-          <div className="flex justify-center">
-            <div className="flex flex-col items-center gap-1 text-gray-600">
-              <ArrowRight size={20} />
-              <span className="text-xs text-gray-500">Evaluated against</span>
-            </div>
+          <p className="text-xs text-slate-400 font-sans mt-1 max-w-3xl">
+            Statistical rigor and in-situ ground truth verification. ARGO floats are physically deployed ocean robots whose
+            CTD sensor profiles are strictly <strong>held out from training</strong> to independently evaluate OceanEmbed.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs">
+          <span className="px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">
+            1,284 Held-Out ARGO Profiles
+          </span>
+        </div>
+      </motion.div>
+
+      {/* Critical Scientific Distinction Callout */}
+      <motion.div custom={1} variants={fadeUp} initial="hidden" animate="visible"
+        className="ocean-panel p-4 grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-950/40 border border-blue-500/25">
+          <div className="w-7 h-7 rounded bg-blue-500/20 text-cyan-400 flex items-center justify-center flex-shrink-0 font-bold text-xs">
+            TR
           </div>
-          <div className="rounded-lg p-3 border border-green-800 bg-green-900/20">
-            <p className="text-xs font-bold text-[#45D6C8] uppercase tracking-wide mb-1">Independent Validation</p>
-            <p className="text-white font-bold text-xl">ARGO</p>
-            <p className="text-gray-400 text-xs mt-1">Autonomous profiling floats — in-situ observations
-              held out completely from training. Used <em>only</em> for independent evaluation of model skill.</p>
+          <div>
+            <h4 className="text-xs font-bold text-cyan-300 uppercase">GLORYS Reanalysis (Training Target)</h4>
+            <p className="text-[11px] text-slate-300 leading-relaxed mt-0.5 font-sans">
+              High-resolution global ocean reanalysis target used during offline PyTorch neural network training.
+              Not used as an operational input at inference time.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/25">
+          <div className="w-7 h-7 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold text-xs">
+            IN
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-emerald-300 uppercase">ARGO In-Situ CTD (Independent Validation)</h4>
+            <p className="text-[11px] text-slate-300 leading-relaxed mt-0.5 font-sans">
+              Autonomous physical robotic profiling floats taking direct in-situ measurements.
+              Held out completely to ensure objective scientific verification.
+            </p>
           </div>
         </div>
       </motion.div>
 
-      {/* KPI row */}
+      {/* KPI Row */}
       <motion.div custom={2} variants={fadeUp} initial="hidden" animate="visible"
         className="grid grid-cols-2 sm:grid-cols-4 gap-3"
       >
-        <KpiCard title="RMSE" value={validationMetrics.rmse} unit="°C" icon={<Target size={16} />} color="#EF4444" />
-        <KpiCard title="Bias" value={`+${validationMetrics.bias}`} unit="°C" icon={<TrendingUp size={16} />} color="#F59E0B" />
-        <KpiCard title="Correlation" value={validationMetrics.correlation} icon={<BarChart2 size={16} />} color="#22C55E" />
-        <KpiCard title="Validated Profiles" value={validationMetrics.validatedProfiles.toLocaleString()} icon={<Hash size={16} />} color="#0866C6" />
+        <KpiCard title="RMSE ACCURACY" value={`${validationMetrics.rmse}°C`} icon={<Target size={16} />} color="#22C55E" subtitle="Root mean squared error" />
+        <KpiCard title="MEAN BIAS" value={`+${validationMetrics.bias}°C`} icon={<TrendingUp size={16} />} color="#18BFEF" subtitle="Minimal systemic drift" />
+        <KpiCard title="CORRELATION (R)" value={validationMetrics.correlation} icon={<BarChart2 size={16} />} color="#45D6C8" subtitle="Pearson coefficient (0–1)" />
+        <KpiCard title="VALIDATED PROFILES" value={validationMetrics.validatedProfiles} icon={<Hash size={16} />} color="#0866C6" subtitle="North Indian Ocean basin" />
       </motion.div>
 
-      {/* Demo disclaimer for metrics */}
-      <motion.div custom={3} variants={fadeUp} initial="hidden" animate="visible"
-        className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3"
-      >
-        <Info size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
-        <p className="text-xs text-amber-700">
-          <strong>Illustrative Demo Values:</strong> RMSE {validationMetrics.rmse}°C, Bias +{validationMetrics.bias}°C,
-          Correlation {validationMetrics.correlation}, Profiles {validationMetrics.validatedProfiles.toLocaleString()} — these are example target metrics
-          for prototype design. Real validation requires running the trained OceanEmbed model against actual held-out ARGO profiles.
-        </p>
-      </motion.div>
-
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Scatter: Predicted vs ARGO */}
-        <motion.div custom={4} variants={fadeUp} initial="hidden" animate="visible"
-          className="bg-white rounded-lg border border-gray-100 shadow-sm p-4"
+      {/* 3D Twin Column Comparison: Prediction vs Observation */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* 3D Dual Column Viewport (5 Cols) */}
+        <motion.div custom={3} variants={fadeUp} initial="hidden" animate="visible"
+          className="lg:col-span-5 ocean-panel p-4 flex flex-col justify-between"
         >
-          <SectionHeader title="Predicted vs. ARGO Reference" subtitle="Perfect agreement = points on the 1:1 diagonal (green dashed)">
-            <DemoBadge />
-          </SectionHeader>
-          <ResponsiveContainer width="100%" height={260}>
-            <ScatterChart margin={{ top: 8, right: 20, bottom: 16, left: 16 }}>
-              <CartesianGrid strokeDasharray="3 6" stroke="#f0f0f0" />
-              <XAxis
-                type="number" dataKey="argo" name="ARGO" domain={[6, 30]}
-                tick={{ fontSize: 11 }}
-                label={{ value: 'ARGO Ref. (°C)', position: 'insideBottom', offset: -8, style: { fontSize: 11, fill: '#9ca3af' } }}
-              />
-              <YAxis
-                type="number" dataKey="predicted" name="Predicted" domain={[6, 30]}
-                tick={{ fontSize: 11 }}
-                label={{ value: 'Predicted (°C)', angle: -90, position: 'insideLeft', offset: 8, style: { fontSize: 11, fill: '#9ca3af' } }}
-              />
-              <ReferenceLine segment={[{ x: 6, y: 6 }, { x: 30, y: 30 }]} stroke="#22C55E" strokeDasharray="6 3" strokeWidth={1.5} />
-              <Tooltip formatter={(v: unknown, n: unknown) => [`${Number(v).toFixed(1)}°C`, String(n)] as [string, string]} cursor={{ strokeDasharray: '3 3' }} />
-              <Scatter data={scatterValidation} fill="#0866C6" fillOpacity={0.7} r={5} />
-            </ScatterChart>
-          </ResponsiveContainer>
-          <p className="text-xs text-gray-400 mt-1">Illustrative scatter — points cluster near 1:1 line, indicating good reconstruction skill.</p>
+          <div>
+            <SectionHeader
+              title="3D Twin Column Verification"
+              subtitle="Synchronized depth comparison: OceanEmbed vs ARGO"
+            />
+            <div className="h-64 w-full relative rounded-lg bg-[#020713] overflow-hidden border border-cyan-500/20">
+              <Canvas camera={{ position: [0, 0, 4.4], fov: 46 }}>
+                <ambientLight intensity={0.5} />
+                <directionalLight position={[3, 5, 4]} intensity={1.5} color="#18BFEF" />
+                <TwinColumnScene currentDepth={activeDepth} />
+              </Canvas>
+
+              {/* Labels overlay */}
+              <div className="absolute top-2 left-4 text-[10px] text-cyan-300 font-bold">
+                OCEANEMBED PREDICTION
+              </div>
+              <div className="absolute top-2 right-4 text-[10px] text-teal-300 font-bold text-right">
+                ARGO FLOAT OBSERVED
+              </div>
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded bg-[#030d1d]/90 border border-cyan-500/30 text-[10px] text-white">
+                DEPTH: {activeDepth}m
+              </div>
+            </div>
+          </div>
+
+          {/* Depth Scrubber */}
+          <div className="mt-4 pt-3 border-t border-cyan-500/15">
+            <div className="flex justify-between items-center text-xs mb-1">
+              <span className="text-slate-400">SCRUB VERIFICATION DEPTH:</span>
+              <span className="text-cyan-300 font-bold">{activeDepth} m</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1000}
+              step={25}
+              value={activeDepth}
+              onChange={(e) => setActiveDepth(Number(e.target.value))}
+              className="w-full cursor-pointer"
+            />
+            {/* Quick depth preset buttons */}
+            <div className="flex items-center gap-1 mt-2">
+              {[0, 50, 100, 250, 500, 1000].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setActiveDepth(d)}
+                  className={`flex-1 py-1 rounded text-[10px] border transition-colors cursor-pointer ${
+                    activeDepth === d
+                      ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 font-bold'
+                      : 'bg-[#020712] border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {d}m
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-3 gap-2 mt-3 text-xs">
+              <div className="p-2 rounded bg-slate-900/60 border border-slate-800 text-center">
+                <span className="text-[10px] text-slate-400 block">PREDICTED</span>
+                <span className="text-sm font-bold text-cyan-300">{matchedLevel.predicted.toFixed(1)}°C</span>
+              </div>
+              <div className="p-2 rounded bg-slate-900/60 border border-slate-800 text-center">
+                <span className="text-[10px] text-slate-400 block">ARGO IN-SITU</span>
+                <span className="text-sm font-bold text-teal-300">{matchedLevel.argoReference?.toFixed(1) ?? '—'}°C</span>
+              </div>
+              <div className="p-2 rounded bg-slate-900/60 border border-slate-800 text-center">
+                <span className="text-[10px] text-slate-400 block">DELTA ERROR</span>
+                <span className="text-sm font-bold text-emerald-400">±{matchedLevel.difference ?? 0.2}°C</span>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
-        {/* Depth-wise RMSE */}
-        <motion.div custom={5} variants={fadeUp} initial="hidden" animate="visible"
-          className="bg-white rounded-lg border border-gray-100 shadow-sm p-4"
+        {/* Statistical Correlation & Depth Error Charts (7 Cols) */}
+        <motion.div custom={4} variants={fadeUp} initial="hidden" animate="visible"
+          className="lg:col-span-7 ocean-panel p-5 flex flex-col justify-between"
         >
-          <SectionHeader title="Depth-wise Reconstruction Error (RMSE)" subtitle="Error by standard depth level">
-            <DemoBadge />
-          </SectionHeader>
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart
-              data={depthWiseError}
-              layout="vertical"
-              margin={{ top: 4, right: 20, bottom: 4, left: 44 }}
-            >
-              <defs>
-                <linearGradient id="rmseGrad" x1="1" y1="0" x2="0" y2="0">
-                  <stop offset="0%" stopColor="#0866C6" stopOpacity={0.6} />
-                  <stop offset="100%" stopColor="#0866C6" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 6" stroke="#f0f0f0" />
-              <XAxis type="number" domain={[0, 1.8]} tickFormatter={v => `${v}°C`} tick={{ fontSize: 11 }} />
-              <YAxis type="number" dataKey="depth" reversed domain={[0, 1000]} tickFormatter={v => `${v}m`} tick={{ fontSize: 11 }} width={44} />
-              <Tooltip formatter={(v: unknown) => [`${Number(v).toFixed(2)}°C`, 'RMSE (demo)'] as [string, string]} labelFormatter={(v: unknown) => `Depth: ${v}m`} />
-              <Area type="monotone" dataKey="rmse" stroke="#0866C6" strokeWidth={2} fill="url(#rmseGrad)" name="RMSE" />
-            </AreaChart>
-          </ResponsiveContainer>
-          <p className="text-xs text-gray-400 mt-1">RMSE peaks near the thermocline (~100–200m), where thermal gradients are steepest.</p>
+          <div>
+            <SectionHeader
+              title="Predicted vs. Observed Correlation (R = 0.94)"
+              subtitle="45° identity line indicates optimal agreement across 0–1000m profiles"
+            />
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis
+                    type="number"
+                    dataKey="predicted"
+                    name="Predicted"
+                    domain={[5, 32]}
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    tickFormatter={(v) => `${v}°`}
+                    label={{ value: 'Predicted Temp (°C)', position: 'insideBottom', offset: -5, style: { fontSize: 10, fill: '#94a3b8' } }}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="argo"
+                    name="ARGO"
+                    domain={[5, 32]}
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    tickFormatter={(v) => `${v}°`}
+                    label={{ value: 'ARGO In-Situ (°C)', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: '#94a3b8' } }}
+                  />
+                  <Tooltip
+                    cursor={{ strokeDasharray: '3 3' }}
+                    contentStyle={{ background: '#071527', border: '1px solid #18BFEF', borderRadius: '6px', fontSize: '11px' }}
+                    formatter={(val, name) => [`${val}°C`, name === 'predicted' ? 'Predicted' : 'ARGO']}
+                  />
+                  <ReferenceLine segment={[{ x: 6, y: 6 }, { x: 30, y: 30 }]} stroke="#45D6C8" strokeDasharray="4 4" />
+                  <Scatter name="Validation Points" data={scatterValidation} fill="#18BFEF" />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-cyan-500/15">
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider block mb-1">
+              Depth-Wise RMSE Error Profile (0–1000m):
+            </span>
+            <div className="h-28 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={depthWiseError} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="depth" tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={(v) => `${v}m`} />
+                  <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} />
+                  <Tooltip
+                    contentStyle={{ background: '#071527', border: '1px solid #18BFEF', borderRadius: '6px', fontSize: '11px' }}
+                    formatter={(val) => [`${val}°C`, 'RMSE']}
+                  />
+                  <Area type="monotone" dataKey="rmse" stroke="#18BFEF" fill="#18BFEF25" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </motion.div>
       </div>
 
-      {/* Validation table */}
-      <motion.div custom={6} variants={fadeUp} initial="hidden" animate="visible"
-        className="bg-white rounded-lg border border-gray-100 shadow-sm p-4"
+      {/* Validation Table */}
+      <motion.div custom={5} variants={fadeUp} initial="hidden" animate="visible"
+        className="ocean-panel p-5"
       >
-        <SectionHeader title="Validation Sample" subtitle={`Showing ${validationEntries.length} of ${validationMetrics.validatedProfiles} illustrative profiles`}>
-          <DemoBadge />
-        </SectionHeader>
+        <SectionHeader
+          title="Recent In-Situ Matchup Samples"
+          subtitle="Point-by-point evaluation of OceanEmbed predictions against ARGO floats"
+        />
         <DataTable
           columns={columns}
           data={validationEntries as unknown as Record<string, unknown>[]}

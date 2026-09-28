@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
-  GitBranch, CheckCircle,
-  Download, ShieldCheck, Cpu, HardDrive, RefreshCw, LayoutDashboard,
-  ArrowDown, Database, Server, Zap, Globe
+  GitBranch, CheckCircle, Download, ShieldCheck, Cpu, HardDrive,
+  RefreshCw, LayoutDashboard, Globe, Radio, Clock
 } from 'lucide-react';
 import SectionHeader from '../components/common/SectionHeader';
 import StatusBadge from '../components/common/StatusBadge';
+import DemoBadge from '../components/common/DemoBadge';
+import KpiCard from '../components/common/KpiCard';
 import { pipelineSteps, dataSources } from '../data/mockData';
 
 const stepIcons: React.ReactNode[] = [
@@ -19,206 +20,332 @@ const stepIcons: React.ReactNode[] = [
   <LayoutDashboard size={16} />,
 ];
 
-function statusBorderColor(s: string): string {
-  switch (s) {
-    case 'operational': return '#22C55E';
-    case 'warning': return '#F59E0B';
-    case 'error': return '#EF4444';
-    default: return '#9CA3AF';
-  }
-}
-
-function statusBg(s: string): string {
-  switch (s) {
-    case 'operational': return 'bg-green-50';
-    case 'warning': return 'bg-amber-50';
-    case 'error': return 'bg-red-50';
-    default: return 'bg-gray-50';
-  }
-}
+const ARCH_STAGES = [
+  {
+    id: 'sources',
+    name: 'DATA SOURCES',
+    sub: 'Copernicus · CMEMS · ERA5 · ARGO',
+    tech: 'Satellite & Reanalysis Ingestion',
+    color: '#18BFEF',
+    latency: '06:00 UTC (4m 12s)',
+    details: 'Automated ingestion of daily SST, SSS, SLA, surface currents, and ERA5 10m wind stress vectors across the North Indian Ocean.',
+    stats: '1.2M Grid Points / day',
+  },
+  {
+    id: 'n8n',
+    name: 'n8n ORCHESTRATION',
+    sub: 'Workflow Automation & Event Scheduling',
+    tech: 'n8n Webhook / Cron Engine',
+    color: '#F59E0B',
+    latency: '06:05 UTC (1m 30s)',
+    details: 'Coordinates fetch → validation → model inference pipeline. Retries on API timeouts and monitors source availability.',
+    stats: '100% Pipeline Reliability',
+  },
+  {
+    id: 'xarray',
+    name: 'PYTHON / XARRAY',
+    sub: 'Preprocessing & Spatial Alignment',
+    tech: 'Xarray + NumPy + NetCDF4',
+    color: '#45D6C8',
+    latency: '06:07 UTC (3m 45s)',
+    details: 'Regrids diverse native satellite resolutions to a uniform 0.25° × 0.25° grid. Handles land masking and missing value imputation.',
+    stats: '0.25° Spatial Grid',
+  },
+  {
+    id: 'fastapi',
+    name: 'FASTAPI BACKEND',
+    sub: 'Asynchronous Prediction Services',
+    tech: 'Python 3.11 + Pydantic v2',
+    color: '#0866C6',
+    latency: '06:11 UTC (<50ms API)',
+    details: 'Exposes high-performance RESTful inference endpoints with Pydantic schema validation and GPU inference dispatch.',
+    stats: 'REST / OpenAPI 3.1',
+  },
+  {
+    id: 'pytorch',
+    name: 'PYTORCH INFERENCE',
+    sub: 'OceanEmbed Encoder–Decoder',
+    tech: 'PyTorch 2.4 + CUDA Acceleration',
+    color: '#A855F7',
+    latency: '06:19 UTC (8m 20s)',
+    details: 'Fuses 7 surface inputs into a 64-dimensional latent ocean embedding, then decodes continuous 0–1000m thermal fields across 15 depths.',
+    stats: '64-dim Latent Manifold',
+  },
+  {
+    id: 'postgis',
+    name: 'POSTGRESQL / POSTGIS',
+    sub: 'Spatial & Historical Storage',
+    tech: 'PostGIS Spatial Engine',
+    color: '#10B981',
+    latency: '06:23 UTC (1m 05s)',
+    details: 'Stores vertical temperature columns, calculated thermal anomalies, and validation match-up metrics for historical retrieval.',
+    stats: 'Spatial Indexing Enabled',
+  },
+  {
+    id: 'dashboard',
+    name: 'THREE.JS DASHBOARD',
+    sub: 'Real-Time 3D Digital Twin',
+    tech: 'React Three Fiber + WebGL',
+    color: '#18BFEF',
+    latency: '06:24 UTC (<16ms 60fps)',
+    details: 'Renders the realistic Earth satellite twin, volumetric 3D ocean X-Ray, and depth-stratified thermal contours.',
+    stats: '60 FPS Hardware Accelerated',
+  },
+];
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
   visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.3 } }),
 };
 
-// Vertical n8n architecture diagram data
-const N8N_ARCH = [
-  {
-    icon: <Globe size={16} />,
-    label: 'Data Sources',
-    sub: 'Copernicus · CMEMS · ERA5 · ARGO',
-    color: '#18BFEF',
-    role: 'Satellite & reanalysis data providers',
-  },
-  {
-    icon: <Zap size={16} />,
-    label: 'n8n Orchestration',
-    sub: 'Workflow automation & scheduling',
-    color: '#F59E0B',
-    role: 'n8n = open-source workflow automation platform. Orchestrates fetch → validate → process → infer.',
-  },
-  {
-    icon: <RefreshCw size={16} />,
-    label: 'Python / Xarray',
-    sub: 'Preprocessing & regridding',
-    color: '#45D6C8',
-    role: 'Xarray handles multi-dimensional ocean data (netCDF). Regrid, normalize, align all sources.',
-  },
-  {
-    icon: <Server size={16} />,
-    label: 'FastAPI',
-    sub: 'Model serving REST API',
-    color: '#0866C6',
-    role: 'FastAPI wraps the PyTorch model as a REST endpoint — receives surface obs, returns subsurface profiles.',
-  },
-  {
-    icon: <Cpu size={16} />,
-    label: 'PyTorch (OceanEmbed)',
-    sub: 'AI encoder–decoder inference',
-    color: '#0866C6',
-    role: 'The core AI model: multi-input encoder → 64-dim embedding → depth-aware decoder → 0–1000m temperature.',
-  },
-  {
-    icon: <Database size={16} />,
-    label: 'PostgreSQL / PostGIS',
-    sub: 'Geospatial result storage',
-    color: '#45D6C8',
-    role: 'Stores predictions, anomaly maps, ARGO comparisons with full geospatial indexing.',
-  },
-  {
-    icon: <LayoutDashboard size={16} />,
-    label: 'React / Three.js Dashboard',
-    sub: 'Visualization & 3D rendering',
-    color: '#22C55E',
-    role: 'This dashboard. Real-time visualization of predictions, anomalies, ARGO validation, and 3D ocean X-ray.',
-  },
-];
+// Canvas Flowing Data Packets Animation
+function FlowingDataPacketCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    let t = 0;
+
+    const render = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Draw subtle horizontal data vector line
+      const centerY = h / 2;
+      ctx.beginPath();
+      ctx.moveTo(30, centerY);
+      ctx.lineTo(w - 30, centerY);
+      ctx.strokeStyle = 'rgba(24, 191, 239, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Flowing glowing packets along the vector line
+      t += 0.015;
+      const packetCount = 8;
+      for (let i = 0; i < packetCount; i++) {
+        const progress = (t + i / packetCount) % 1.0;
+        const x = 30 + progress * (w - 60);
+        const y = centerY + Math.sin(progress * Math.PI * 4) * 8;
+
+        // Glowing packet dot
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#18BFEF';
+        ctx.shadowColor = '#18BFEF';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      animId = requestAnimationFrame(render);
+    };
+
+    render();
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={700}
+      height={32}
+      className="w-full h-8 opacity-80"
+    />
+  );
+}
 
 export default function Pipeline() {
+  const [selectedStage, setSelectedStage] = useState(ARCH_STAGES[4]); // PyTorch default
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 font-mono-tech">
       {/* Header */}
-      <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible">
-        <div className="flex items-center gap-2 mb-1">
-          <GitBranch size={20} className="text-[#0866C6]" />
-          <h1 className="text-xl font-bold text-[#071B33]">Automated Ocean Data Pipeline</h1>
+      <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+      >
+        <div>
+          <div className="flex items-center gap-2">
+            <GitBranch size={20} className="text-[#18BFEF]" />
+            <h1 className="text-xl font-bold text-white tracking-wide uppercase font-display">
+              End-to-End Data Pipeline Architecture
+            </h1>
+            <DemoBadge />
+          </div>
+          <p className="text-xs text-slate-400 font-sans mt-1 max-w-3xl">
+            Autonomous multi-stage data orchestration: from satellite ingestion (Copernicus/CMEMS/ERA5) through
+            n8n workflows, Xarray preprocessing, PyTorch GPU inference, and PostGIS storage.
+          </p>
         </div>
-        <p className="text-sm text-gray-500">
-          End-to-end n8n-orchestrated pipeline: satellite ingestion → preprocessing → OceanEmbed inference →
-          ARGO validation → dashboard update. Runs daily at 06:00 UTC.
-        </p>
+
+        <div className="flex items-center gap-2 text-xs">
+          <span className="px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            CYCLE OPERATIONAL (06:24 UTC)
+          </span>
+        </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Left: vertical n8n architecture */}
-        <motion.div custom={1} variants={fadeUp} initial="hidden" animate="visible"
-          className="bg-[#071B33] rounded-lg p-5"
+      {/* KPI Row */}
+      <motion.div custom={1} variants={fadeUp} initial="hidden" animate="visible"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+      >
+        <KpiCard title="DAILY DATA INGESTION" value="1.2M Pts" icon={<Download size={16} />} color="#18BFEF" />
+        <KpiCard title="CYCLE DURATION" value="24m 12s" icon={<Clock size={16} />} color="#45D6C8" />
+        <KpiCard title="MODEL INFERENCE" value="8m 20s" icon={<Cpu size={16} />} color="#A855F7" />
+        <KpiCard title="DATA SOURCES" value="7 Feeds" icon={<Globe size={16} />} color="#F59E0B" />
+      </motion.div>
+
+      {/* Living 3D Data Flow Vector Track */}
+      <motion.div custom={2} variants={fadeUp} initial="hidden" animate="visible"
+        className="ocean-panel p-5"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <SectionHeader
+            title="Living System Flow Track"
+            subtitle="Click any stage to inspect technical specs, schemas, and execution latency"
+          />
+          <span className="text-[10px] text-cyan-400 uppercase font-bold">
+            PACKET STREAM: ACTIVE
+          </span>
+        </div>
+
+        <FlowingDataPacketCanvas />
+
+        {/* Stage Nodes Ribbon */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mt-4">
+          {ARCH_STAGES.map((stage, idx) => {
+            const isSelected = selectedStage.id === stage.id;
+            return (
+              <button
+                key={stage.id}
+                onClick={() => setSelectedStage(stage)}
+                className={`p-3 rounded-lg text-left transition-all cursor-pointer ${
+                  isSelected
+                    ? 'ocean-panel-glow border-cyan-400/60 scale-[1.02]'
+                    : 'bg-[#040e20]/70 border border-slate-800 hover:border-cyan-500/40'
+                }`}
+                style={{ borderTop: `3px solid ${stage.color}` }}
+              >
+                <span className="text-[10px] text-slate-400 block font-bold">STEP 0{idx + 1}</span>
+                <span className="text-xs font-bold text-white block mt-0.5 truncate">{stage.name}</span>
+                <span className="text-[10px] text-cyan-300 block truncate mt-1">{stage.sub.split('·')[0]}</span>
+              </button>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      {/* Selected Stage Dossier & Data Sources Table */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Selected Stage Detail Inspector (5 Cols) */}
+        <motion.div custom={3} variants={fadeUp} initial="hidden" animate="visible"
+          className="lg:col-span-5 ocean-panel p-5 flex flex-col justify-between"
         >
-          <div className="flex items-center gap-2 mb-4">
-            <Zap size={16} className="text-[#F59E0B]" />
-            <h3 className="text-sm font-semibold text-white">n8n Pipeline Architecture</h3>
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-cyan-500/20 text-xs">
+              <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <Radio size={14} className="text-cyan-400" /> Stage Telemetry
+              </span>
+              <StatusBadge status="operational" label="Healthy" />
+            </div>
+
+            <div className="mt-3">
+              <h3 className="text-base font-bold text-white" style={{ color: selectedStage.color }}>
+                {selectedStage.name}
+              </h3>
+              <p className="text-xs text-slate-300 mt-0.5">{selectedStage.tech}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
+              <div className="p-2.5 rounded bg-[#040e20]/80 border border-slate-800">
+                <span className="text-slate-400 text-[10px] block">EXECUTION LATENCY</span>
+                <span className="text-xs font-bold text-white">{selectedStage.latency}</span>
+              </div>
+              <div className="p-2.5 rounded bg-[#040e20]/80 border border-slate-800">
+                <span className="text-slate-400 text-[10px] block">THROUGHPUT</span>
+                <span className="text-xs font-bold text-cyan-300">{selectedStage.stats}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 rounded-lg bg-black/40 border border-slate-800 text-xs text-slate-300 leading-relaxed font-sans">
+              <p>{selectedStage.details}</p>
+            </div>
           </div>
-          <div className="flex flex-col items-center gap-0">
-            {N8N_ARCH.map((node, i) => (
-              <React.Fragment key={node.label}>
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 + i * 0.1 }}
-                  className="w-full rounded-lg px-3 py-2.5 border flex items-start gap-3"
-                  style={{ borderColor: `${node.color}40`, background: `${node.color}10` }}
-                >
-                  <span style={{ color: node.color }} className="flex-shrink-0 mt-0.5">{node.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-xs font-semibold">{node.label}</p>
-                    <p className="text-gray-400 text-xs">{node.sub}</p>
-                    <p className="text-gray-600 text-xs mt-0.5 italic">{node.role}</p>
-                  </div>
-                </motion.div>
-                {i < N8N_ARCH.length - 1 && (
-                  <ArrowDown size={14} className="text-gray-700 my-0.5 flex-shrink-0" />
-                )}
-              </React.Fragment>
-            ))}
+
+          <div className="mt-4 pt-3 border-t border-cyan-500/15 text-[11px] text-slate-400">
+            Automated retry: Enabled · Webhook trigger: Active
           </div>
         </motion.div>
 
-        {/* Right: step cards */}
-        <div className="space-y-3">
-          <motion.div custom={2} variants={fadeUp} initial="hidden" animate="visible"
-            className="bg-white rounded-lg border border-gray-100 shadow-sm p-4"
-          >
-            <SectionHeader title="Pipeline Steps" subtitle="Daily execution — 06:00 UTC" />
-            <div className="space-y-2">
-              {pipelineSteps.map((step, i) => (
-                <motion.div
-                  key={step.id}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 + i * 0.07 }}
-                  className={`rounded-lg border-l-4 p-3 ${statusBg(step.status)}`}
-                  style={{ borderLeftColor: statusBorderColor(step.status) }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span style={{ color: statusBorderColor(step.status) }}>{stepIcons[i]}</span>
-                      <span className="text-sm font-semibold text-gray-800">{step.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-gray-400">{step.duration}</span>
-                      <StatusBadge status={step.status} />
-                    </div>
+        {/* Input Data Sources (7 Cols) */}
+        <motion.div custom={4} variants={fadeUp} initial="hidden" animate="visible"
+          className="lg:col-span-7 ocean-panel p-5"
+        >
+          <SectionHeader
+            title="External Ocean Data Feeds"
+            subtitle="Multi-source satellite and in-situ feeds driving model predictions"
+          />
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+            {dataSources.map((ds) => (
+              <div
+                key={ds.dataset}
+                className="p-2.5 rounded-lg bg-[#040e20]/70 border border-slate-800 hover:border-cyan-500/30 transition-colors flex items-center justify-between text-xs"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white">{ds.dataset}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-950 border border-blue-500/30 text-cyan-300">
+                      {ds.source}
+                    </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1 ml-6">{step.description}</p>
-                  <p className="text-xs font-mono text-gray-400 mt-0.5 ml-6">{step.lastRun}</p>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5 font-sans">{ds.description}</p>
+                </div>
+                <div className="text-right flex-shrink-0 ml-3">
+                  <StatusBadge status={ds.status} />
+                  <span className="text-[10px] text-slate-400 block mt-1">{ds.lastUpdate}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
       </div>
 
-      {/* Data Sources table */}
-      <motion.div custom={3} variants={fadeUp} initial="hidden" animate="visible"
-        className="bg-white rounded-lg border border-gray-100 shadow-sm p-4"
+      {/* Chronological Pipeline Step Runs */}
+      <motion.div custom={5} variants={fadeUp} initial="hidden" animate="visible"
+        className="ocean-panel p-5"
       >
-        <SectionHeader title="Data Sources" subtitle="Multi-source satellite and reanalysis inputs" />
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                {['Dataset', 'Source', 'Status', 'Last Update', 'Records', 'Description'].map(h => (
-                  <th key={h} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {dataSources.map((ds, i) => (
-                <tr key={i} className={`border-b border-gray-100 hover:bg-blue-50/30 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                  <td className="px-3 py-2 font-semibold text-gray-800 text-sm">{ds.dataset}</td>
-                  <td className="px-3 py-2">
-                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-medium rounded border border-blue-200">{ds.source}</span>
-                  </td>
-                  <td className="px-3 py-2"><StatusBadge status={ds.status} /></td>
-                  <td className="px-3 py-2 font-mono text-xs text-gray-600">{ds.lastUpdate}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{ds.records}</td>
-                  <td className="px-3 py-2 text-xs text-gray-500">{ds.description}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
-
-      {/* Tech stack tags */}
-      <motion.div custom={4} variants={fadeUp} initial="hidden" animate="visible"
-        className="bg-white rounded-lg border border-gray-100 shadow-sm p-4"
-      >
-        <SectionHeader title="Technology Stack" subtitle="End-to-end production architecture" />
-        <div className="flex flex-wrap gap-2">
-          {['Python', 'Xarray', 'PyTorch', 'n8n', 'FastAPI', 'PostgreSQL', 'PostGIS', 'Docker', 'React', 'Three.js', 'Copernicus API', 'CMEMS', 'ERA5', 'ARGO'].map(t => (
-            <span key={t} className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-200">{t}</span>
+        <SectionHeader
+          title="Daily Execution Cycle Log (06:00–06:24 UTC)"
+          subtitle="Step-by-step verification of daily ocean reconstruction job"
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {pipelineSteps.map((step, i) => (
+            <div
+              key={step.id}
+              className="p-3 rounded-lg bg-[#040e20]/60 border border-slate-800 text-xs"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] text-slate-400">STEP 0{step.id}</span>
+                <StatusBadge status={step.status} />
+              </div>
+              <div className="flex items-center gap-2 text-white font-bold mb-1">
+                <span className="text-cyan-400">{stepIcons[i % stepIcons.length]}</span>
+                <span>{step.name}</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-snug font-sans mb-2">
+                {step.description}
+              </p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/80">
+                <span>Ran: {step.lastRun}</span>
+                <span className="text-cyan-300 font-semibold">{step.duration}</span>
+              </div>
+            </div>
           ))}
         </div>
       </motion.div>

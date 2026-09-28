@@ -9,6 +9,8 @@ import Validation from './pages/Validation';
 import Pipeline from './pages/Pipeline';
 import System from './pages/System';
 
+import SurfaceData from './pages/SurfaceData';
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -17,6 +19,7 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="explorer" element={<Explorer />} />
+          <Route path="surface-data" element={<SurfaceData />} />
           <Route path="profile" element={<TemperatureProfile />} />
           <Route path="ocean-xray" element={<OceanXRay />} />
           <Route path="anomalies" element={<Anomalies />} />

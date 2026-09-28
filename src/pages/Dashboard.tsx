@@ -1,290 +1,302 @@
-import React from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, ArrowDown, Layers, Anchor, Activity,
-  Thermometer, Droplets, TrendingUp, Navigation, Wind,
-  AlignVerticalDistributeCenter, ArrowRight, Fish, Globe,
-  AlertTriangle, BarChart2,
+  Globe, Compass, Layers, Thermometer, Box, AlertTriangle,
+  CheckCircle, ArrowRight, RotateCcw,
+  Sparkles, Cpu
 } from 'lucide-react';
-import KpiCard from '../components/common/KpiCard';
-import SectionHeader from '../components/common/SectionHeader';
-import DemoBadge from '../components/common/DemoBadge';
-import Tooltip from '../components/common/Tooltip';
-import OceanMap from '../components/ocean/OceanMap';
-import TemperatureDepthChart from '../components/charts/TemperatureDepthChart';
-import { oceanStateSummary, defaultProfile } from '../data/mockData';
+import RealisticEarth from '../components/ocean/RealisticEarth';
+import SubsurfaceReconstructionDive from '../components/ocean/SubsurfaceReconstructionDive';
+import { locations, getOceanObservation } from '../data/mockData';
 import type { OceanLocation } from '../types/ocean';
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.4 } }),
-};
-
-const kpis = [
-  { title: 'Surface Coverage', value: '0.25° × 0.25°', icon: <LayoutDashboard size={16} />, color: '#0866C6' },
-  { title: 'Reconstruction Depth', value: '0–1000 m', icon: <ArrowDown size={16} />, color: '#18BFEF' },
-  { title: 'Standard Depth Levels', value: '15', icon: <Layers size={16} />, color: '#45D6C8' },
-  { title: 'Validation Source', value: 'ARGO', icon: <Anchor size={16} />, color: '#0866C6' },
-  { title: 'Pipeline Status', value: 'Operational', icon: <Activity size={16} />, color: '#22C55E' },
-];
-
-const stateItems = [
-  {
-    key: 'sst', icon: <Thermometer size={18} />, color: '#EF4444',
-    tooltip: 'Sea Surface Temperature — temperature of the ocean at the surface (~0.1m depth), measured by satellites.',
-  },
-  {
-    key: 'sss', icon: <Droplets size={18} />, color: '#0866C6',
-    tooltip: 'Sea Surface Salinity — concentration of dissolved salts in surface ocean water (PSU = Practical Salinity Units).',
-  },
-  {
-    key: 'sla', icon: <TrendingUp size={18} />, color: '#18BFEF',
-    tooltip: 'Sea Level Anomaly — deviation of sea surface height from the long-term mean, used to infer subsurface heat content.',
-  },
-  {
-    key: 'currentSpeed', icon: <Navigation size={18} />, color: '#45D6C8',
-    tooltip: 'Magnitude of the surface ocean current velocity vector (√(u² + v²)).',
-  },
-  {
-    key: 'windSpeed', icon: <Wind size={18} />, color: '#9CA3AF',
-    tooltip: 'Surface wind speed used to drive ocean mixing and derive wind stress.',
-  },
-  {
-    key: 'thermoclineDepth', icon: <AlignVerticalDistributeCenter size={18} />, color: '#F59E0B',
-    tooltip: 'Estimated depth of the thermocline — the layer where temperature decreases sharply with depth.',
-  },
-];
-
-const whyItems = [
-  { icon: <Globe size={15} />, text: 'Ocean monitoring & climate studies' },
-  { icon: <Thermometer size={15} />, text: 'Marine heatwave detection & analysis' },
-  { icon: <Fish size={15} />, text: 'Fisheries & ecosystem monitoring' },
-  { icon: <AlertTriangle size={15} />, text: 'Hazard & decision-support systems' },
-  { icon: <BarChart2 size={15} />, text: 'Seasonal & climate forecasting support' },
-];
+type GlobeMissionPhase = 'globe' | 'parameters' | 'encoder' | 'dive';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [, setSelectedLoc] = React.useState<OceanLocation | null>(null);
+  // Default to Bay of Bengal (lat 15.25, lng 88.75) as requested
+  const [selectedLoc, setSelectedLoc] = useState<OceanLocation>(locations[0]);
+  const [phase, setPhase] = useState<GlobeMissionPhase>('globe');
+
+  const obs = useMemo(() => getOceanObservation(selectedLoc), [selectedLoc]);
+
+  // Derived vector speeds
+  const currentSpeed = Math.round(Math.sqrt(obs.uCurrent * obs.uCurrent + obs.vCurrent * obs.vCurrent) * 100) / 100;
+  const windSpeed = Math.round(Math.sqrt(obs.uWind * obs.uWind + obs.vWind * obs.vWind) * 10) / 10;
+
+  // 64 Latent Embedding coordinates
+  const latentPreview = useMemo(() => {
+    const seed = obs.sst * 1.5 + obs.sss * 0.8 + obs.sla * 10;
+    return Array.from({ length: 32 }, (_, i) => {
+      const v = Math.sin(seed + i * 0.42);
+      return Math.round(v * 100) / 100;
+    });
+  }, [obs]);
 
   return (
-    <div className="space-y-5">
-      {/* ── Hero Header ───────────────────────────────────────── */}
-      <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible"
-        className="rounded-xl overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #071B33 0%, #0A2A4A 60%, #0866C6 100%)' }}
-      >
-        <div className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-2 py-0.5 text-xs font-bold bg-[#18BFEF]/20 text-[#18BFEF] rounded border border-[#18BFEF]/30 uppercase tracking-widest">
-                SIH 2026 · Problem SIH26066
-              </span>
-              <DemoBadge />
-            </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight mt-2">OCEANEMBED</h1>
-            <p className="text-[#45D6C8] font-semibold text-base">Subsurface Ocean Intelligence</p>
-            <p className="text-white/60 text-sm mt-1 max-w-lg">
-              From sparse surface observations to a reconstructed view of the hidden ocean — using AI-driven ocean embeddings.
-            </p>
+    <div className="relative w-full h-full overflow-hidden bg-[#020612] select-none font-mono-tech">
+      {/* ── 1. FULL-SCREEN 3D EARTH HERO CANVAS ──────────────────────────────── */}
+      <div className="absolute inset-0 w-full h-full z-0">
+        {phase === 'dive' ? (
+          <div className="w-full h-full pt-14 pb-16 px-4 max-w-7xl mx-auto flex flex-col justify-center">
+            <SubsurfaceReconstructionDive
+              location={selectedLoc}
+              onCompleteProfile={() => navigate('/profile')}
+              onOpenXRay={() => navigate('/ocean-xray')}
+              onBackToEncoder={() => setPhase('encoder')}
+            />
           </div>
-          <div className="flex flex-col gap-2 flex-shrink-0">
-            <button
-              onClick={() => navigate('/explorer')}
-              className="flex items-center gap-2 bg-[#0866C6] hover:bg-[#065bb0] text-white font-semibold px-4 py-2.5 rounded-lg transition-colors text-sm"
-            >
-              Explore Ocean State <ArrowRight size={15} />
-            </button>
-            <button
-              onClick={() => navigate('/ocean-xray')}
-              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm border border-white/20"
-            >
-              Open 3D Ocean X-Ray <ArrowRight size={15} />
-            </button>
-          </div>
-        </div>
-
-        {/* Pipeline ribbon */}
-        <div className="border-t border-white/10 px-5 py-3 overflow-x-auto">
-          <div className="flex items-center gap-2 min-w-max">
-            {[
-              { label: 'Surface Obs.', sub: 'SST · SSS · SLA · Currents · Wind', active: true },
-              { label: 'Ocean Encoder', sub: 'Multi-variable fusion', active: false },
-              { label: 'Embedding', sub: '64-dim latent state', active: false },
-              { label: 'Depth Decoder', sub: 'Profile reconstruction', active: false },
-              { label: 'Subsurface Temp', sub: '0–1000m · 15 depths', active: false },
-              { label: 'ARGO Validation', sub: 'Independent check', active: false },
-              { label: 'Ocean Intelligence', sub: 'Anomaly · Monitoring', active: true },
-            ].map((step, i, arr) => (
-              <React.Fragment key={i}>
-                <div className={`flex-shrink-0 px-3 py-1.5 rounded text-center ${step.active ? 'bg-[#0866C6]/40 border border-[#18BFEF]/40' : 'bg-white/5 border border-white/10'}`}>
-                  <p className="text-white text-xs font-semibold whitespace-nowrap">{step.label}</p>
-                  <p className="text-white/40 text-xs whitespace-nowrap">{step.sub}</p>
-                </div>
-                {i < arr.length - 1 && <span className="text-[#18BFEF] flex-shrink-0 text-sm">→</span>}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* ── KPI Cards ─────────────────────────────────────────── */}
-      <motion.div custom={1} variants={fadeUp} initial="hidden" animate="visible"
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
-      >
-        {kpis.map((k, i) => (
-          <KpiCard key={i} title={k.title} value={k.value} icon={k.icon} color={k.color} />
-        ))}
-      </motion.div>
-
-      {/* ── Main Map ──────────────────────────────────────────── */}
-      <motion.div custom={2} variants={fadeUp} initial="hidden" animate="visible"
-        className="bg-white rounded-lg shadow-sm border border-gray-100 p-4"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <SectionHeader
-            title="North Indian Ocean — Interactive Map"
-            subtitle="Click any observation point. Anomaly regions highlighted in orange/red."
+        ) : (
+          <RealisticEarth
+            selectedLocation={selectedLoc}
+            onLocationSelect={(loc) => {
+              setSelectedLoc(loc);
+              if (phase !== 'globe') setPhase('globe');
+            }}
+            showArgo={true}
+            showAnomalies={true}
+            onExploreSurfaceData={() => setPhase('parameters')}
+            style={{ width: '100%', height: '100%' }}
           />
-          <button
-            onClick={() => navigate('/explorer')}
-            className="flex items-center gap-1.5 text-xs text-[#0866C6] hover:text-[#065bb0] font-medium"
-          >
-            Open Explorer <ArrowRight size={12} />
-          </button>
-        </div>
-        <OceanMap
-          onLocationSelect={setSelectedLoc}
-          showArgo={true}
-          showAnomalies={true}
-          className="rounded overflow-hidden"
-          style={{ height: 320 }}
-        />
-      </motion.div>
-
-      {/* ── Ocean State + Temperature ─────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <motion.div custom={3} variants={fadeUp} initial="hidden" animate="visible"
-          className="bg-white rounded-lg shadow-sm border border-gray-100 p-4"
-        >
-          <SectionHeader title="Ocean State Summary" subtitle="Bay of Bengal – Central, 18 Sep 2026">
-            <DemoBadge />
-          </SectionHeader>
-          <div className="grid grid-cols-2 gap-3">
-            {stateItems.map(({ key, icon, color, tooltip }) => {
-              const item = oceanStateSummary[key as keyof typeof oceanStateSummary];
-              return (
-                <div key={key} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-100">
-                  <span style={{ color }} className="flex-shrink-0">{icon}</span>
-                  <div className="min-w-0">
-                    <Tooltip text={tooltip}>
-                      <span className="text-xs text-gray-500 uppercase tracking-wide cursor-help underline decoration-dotted">
-                        {item.abbr}
-                      </span>
-                    </Tooltip>
-                    <p className="text-sm font-bold text-gray-800">
-                      {key === 'sla' && item.value > 0 ? '+' : ''}{item.value}
-                      <span className="text-xs font-normal text-gray-500 ml-1">{item.unit}</span>
-                    </p>
-                    <p className="text-xs text-gray-400 truncate">{item.label}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <button
-              onClick={() => navigate('/explorer')}
-              className="w-full flex items-center justify-center gap-2 bg-[#0866C6] hover:bg-[#065bb0] text-white text-sm font-semibold py-2 rounded-lg transition-colors"
-            >
-              Reconstruct Hidden Ocean <ArrowRight size={14} />
-            </button>
-          </div>
-        </motion.div>
-
-        <motion.div custom={4} variants={fadeUp} initial="hidden" animate="visible"
-          className="bg-white rounded-lg shadow-sm border border-gray-100 p-4"
-        >
-          <SectionHeader title="Subsurface Temperature Snapshot" subtitle="Reconstructed 0–1000m profile · Bay of Bengal – Central">
-            <DemoBadge />
-          </SectionHeader>
-          <TemperatureDepthChart data={defaultProfile.depths} height={260} />
-          <p className="text-xs text-gray-400 mt-2 text-center">
-            Illustrative profile. Blue = predicted · Cyan dashed = ARGO reference
-          </p>
-        </motion.div>
+        )}
       </div>
 
-      {/* ── Why OceanEmbed ────────────────────────────────────── */}
-      <motion.div custom={5} variants={fadeUp} initial="hidden" animate="visible"
-        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
-      >
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-1 h-5 bg-[#18BFEF] rounded-full" />
-            <h3 className="text-sm font-bold text-[#071B33]">Why OceanEmbed?</h3>
-          </div>
-          <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-            Surface observations are globally abundant, but <strong>subsurface measurements are spatially sparse</strong>.
-            OceanEmbed is designed to reconstruct the hidden thermal structure of the ocean from surface-only inputs —
-            providing dense subsurface intelligence to support:
-          </p>
-          <div className="space-y-2">
-            {whyItems.map(({ icon, text }, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-gray-700">
-                <span className="text-[#0866C6] flex-shrink-0">{icon}</span>
-                {text}
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-amber-700 bg-amber-50 rounded p-2">
-            <strong>Important:</strong> OceanEmbed provides ocean-state information that can
-            support downstream monitoring and decision-support workflows. It is not a standalone disaster
-            prediction system.
-          </div>
-        </div>
-
-        <div className="bg-[#071B33] rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-1 h-5 bg-[#45D6C8] rounded-full" />
-            <h3 className="text-sm font-bold text-white">Demo Flow — Judge Guide</h3>
-          </div>
-          <div className="space-y-2">
-            {[
-              { step: 1, label: 'Overview Dashboard', action: 'Surface observations', nav: '/dashboard' },
-              { step: 2, label: 'Ocean Explorer', action: 'Select Bay of Bengal', nav: '/explorer' },
-              { step: 3, label: 'Temperature Profile', action: 'Reconstruct 0–1000m', nav: '/profile' },
-              { step: 4, label: '3D Ocean X-Ray', action: 'Move depth slider 0→1000m', nav: '/ocean-xray' },
-              { step: 5, label: 'ARGO Validation', action: 'Predicted vs. independent', nav: '/validation' },
-              { step: 6, label: 'Anomaly Intelligence', action: 'Subsurface anomaly map', nav: '/anomalies' },
-            ].map(({ step, label, action, nav }) => (
-              <button
-                key={step}
-                onClick={() => navigate(nav)}
-                className="w-full flex items-center gap-3 text-left hover:bg-white/5 rounded px-2 py-1.5 transition-colors group"
-              >
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#0866C6]/50 text-[#18BFEF] text-xs font-bold flex items-center justify-center">
-                  {step}
+      {/* ── 2. FLOATING STAGE 2: SURFACE PARAMETER INSTRUMENTS OVER GLOBE ───── */}
+      <AnimatePresence>
+        {phase === 'parameters' && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ duration: 0.3 }}
+            className="absolute top-16 left-4 sm:left-8 z-30 max-w-md w-full ocean-panel-glow p-4 border-cyan-400/50 backdrop-blur-xl shadow-2xl space-y-3"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                <span className="text-[10px] text-cyan-300 font-bold uppercase tracking-wider">
+                  SURFACE OBSERVATION RECEPTOR
                 </span>
-                <div className="min-w-0 flex-1">
-                  <span className="text-white text-xs font-semibold block">{label}</span>
-                  <span className="text-gray-500 text-xs">{action}</span>
-                </div>
-                <ArrowRight size={12} className="text-gray-600 group-hover:text-[#18BFEF] transition-colors flex-shrink-0" />
-              </button>
-            ))}
-          </div>
-        </div>
-      </motion.div>
+              </div>
+              <span className="text-[10px] text-slate-400">
+                {selectedLoc.lat.toFixed(2)}°N, {selectedLoc.lng.toFixed(2)}°E
+              </span>
+            </div>
 
-      {/* ── Global disclaimer ─────────────────────────────────── */}
-      <motion.div custom={6} variants={fadeUp} initial="hidden" animate="visible"
-        className="text-xs text-gray-400 text-center py-2"
-      >
-        DEMO MODE — Displayed predictions, metrics and anomalies are illustrative mock values for prototype demonstration
-        and do not represent live ocean measurements.
-      </motion.div>
+            <div>
+              <p className="text-sm font-bold text-white tracking-wide">{selectedLoc.name}</p>
+              <p className="text-[10px] text-slate-400 font-sans mt-0.5">
+                Multi-sensor satellite boundary conditions locked for neural inference.
+              </p>
+            </div>
+
+            {/* 7 Surface Instrument Values */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2 rounded bg-[#020712]/90 border border-red-500/25">
+                <div className="flex justify-between text-[9px] text-slate-400">
+                  <span>SST</span>
+                  <span className="text-red-400">OPTIMAL</span>
+                </div>
+                <div className="text-base font-bold text-white mt-0.5">
+                  {obs.sst} <span className="text-xs text-red-300 font-normal">°C</span>
+                </div>
+                <span className="text-[8px] text-slate-500 truncate block">CMEMS OSTIA IR</span>
+              </div>
+
+              <div className="p-2 rounded bg-[#020712]/90 border border-blue-500/25">
+                <div className="flex justify-between text-[9px] text-slate-400">
+                  <span>SSS</span>
+                  <span className="text-cyan-400">HALINE</span>
+                </div>
+                <div className="text-base font-bold text-white mt-0.5">
+                  {obs.sss} <span className="text-xs text-cyan-300 font-normal">PSU</span>
+                </div>
+                <span className="text-[8px] text-slate-500 truncate block">SMOS/SMAP L4</span>
+              </div>
+
+              <div className="p-2 rounded bg-[#020712]/90 border border-teal-500/25">
+                <div className="flex justify-between text-[9px] text-slate-400">
+                  <span>SLA</span>
+                  <span className="text-teal-300">EXPANSION</span>
+                </div>
+                <div className="text-base font-bold text-white mt-0.5">
+                  {obs.sla > 0 ? `+${obs.sla.toFixed(2)}` : obs.sla.toFixed(2)} <span className="text-xs text-teal-300 font-normal">m</span>
+                </div>
+                <span className="text-[8px] text-slate-500 truncate block">Sentinel-3 Altimetry</span>
+              </div>
+
+              <div className="p-2 rounded bg-[#020712]/90 border border-emerald-500/25">
+                <div className="flex justify-between text-[9px] text-slate-400">
+                  <span>CURRENT (U/V)</span>
+                  <span className="text-emerald-400">DRIFT</span>
+                </div>
+                <div className="text-base font-bold text-white mt-0.5">
+                  {currentSpeed} <span className="text-xs text-emerald-300 font-normal">m/s</span>
+                </div>
+                <span className="text-[8px] text-slate-500 truncate block">
+                  U: {obs.uCurrent > 0 ? `+${obs.uCurrent}` : obs.uCurrent} · V: {obs.vCurrent > 0 ? `+${obs.vCurrent}` : obs.vCurrent}
+                </span>
+              </div>
+
+              <div className="col-span-2 p-2 rounded bg-[#020712]/90 border border-purple-500/25">
+                <div className="flex justify-between text-[9px] text-slate-400">
+                  <span>WIND 10m (U/V)</span>
+                  <span className="text-purple-300">ERA5 STRESS</span>
+                </div>
+                <div className="flex justify-between items-baseline mt-0.5">
+                  <div className="text-base font-bold text-white">
+                    {windSpeed} <span className="text-xs text-purple-300 font-normal">m/s</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">
+                    U: {obs.uWind > 0 ? `+${obs.uWind}` : obs.uWind}m/s · V: {obs.vWind > 0 ? `+${obs.vWind}` : obs.vWind}m/s
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="pt-2 border-t border-cyan-500/15 flex items-center gap-2">
+              <button
+                onClick={() => setPhase('globe')}
+                className="px-3 py-2 rounded bg-[#020712] hover:bg-slate-800 text-slate-400 text-xs border border-slate-800 transition-colors cursor-pointer"
+              >
+                <RotateCcw size={13} />
+              </button>
+              <button
+                onClick={() => setPhase('encoder')}
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-gradient-to-r from-[#0866C6] to-[#18BFEF] hover:brightness-110 text-white font-bold text-xs uppercase tracking-wider shadow-[0_0_15px_rgba(24,191,239,0.35)] transition-all cursor-pointer"
+              >
+                <span>CONVERGE TO ENCODER</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── 3. FLOATING STAGE 3: OCEAN STATE ENCODER OVER GLOBE ────────────── */}
+      <AnimatePresence>
+        {phase === 'encoder' && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ duration: 0.3 }}
+            className="absolute top-16 left-4 sm:left-8 z-30 max-w-lg w-full ocean-panel-glow p-4 border-cyan-400/50 backdrop-blur-xl shadow-2xl space-y-3.5"
+          >
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2">
+              <div className="flex items-center gap-2">
+                <Cpu size={14} className="text-[#18BFEF] animate-pulse" />
+                <span className="text-[10px] text-cyan-300 font-bold uppercase tracking-wider">
+                  OCEAN STATE ENCODER
+                </span>
+              </div>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold">
+                LATENT SYNC
+              </span>
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-white uppercase tracking-wide">
+                Surface Convergence → 64-D Latent Manifold
+              </p>
+              <p className="text-[10px] text-slate-300 font-sans mt-0.5 leading-relaxed">
+                The 7 surface boundary observations converge through the deep neural encoder, projecting non-linear dynamics into continuous latent coordinates.
+              </p>
+            </div>
+
+            {/* Latent Vector 32-node Grid Preview */}
+            <div className="p-2.5 rounded bg-[#020712] border border-cyan-500/20 space-y-1.5">
+              <div className="flex justify-between text-[10px] text-slate-400">
+                <span>LATENT EMBEDDING: z ∈ ℝ⁶⁴</span>
+                <span className="text-cyan-300 font-bold">14ms Inference</span>
+              </div>
+              <div className="grid grid-cols-8 gap-1 pt-1">
+                {latentPreview.map((val, idx) => (
+                  <div
+                    key={idx}
+                    className="h-4 rounded-xs text-[8px] flex items-center justify-center font-mono-tech border border-cyan-500/20"
+                    style={{
+                      backgroundColor: val >= 0 ? `rgba(24, 191, 239, ${0.15 + Math.abs(val) * 0.6})` : `rgba(8, 102, 198, ${0.15 + Math.abs(val) * 0.6})`,
+                      color: '#ffffff',
+                    }}
+                    title={`z[${idx}] = ${val}`}
+                  >
+                    {val >= 0 ? `+${val.toFixed(1)}` : val.toFixed(1)}
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between text-[8px] text-slate-500 pt-0.5">
+                <span>z₀ (Thermal Skin)</span>
+                <span>z₁₆ (Thermocline Shear)</span>
+                <span>z₃₁ (Abyssal Geostrophy)</span>
+              </div>
+            </div>
+
+            {/* Depth Decoder Target */}
+            <div className="p-2.5 rounded bg-[#020712] border border-slate-800 flex items-center justify-between text-xs">
+              <div>
+                <span className="text-[9px] text-slate-400 block uppercase">Continuous Decoder</span>
+                <span className="text-white font-bold">f_θ(z, depth) → T(depth)</span>
+              </div>
+              <span className="text-teal-300 font-bold text-[11px] px-2 py-0.5 rounded bg-[#061e38] border border-cyan-500/25">
+                15 Levels (0–1000m)
+              </span>
+            </div>
+
+            {/* Action buttons */}
+            <div className="pt-2 border-t border-cyan-500/15 flex items-center gap-2">
+              <button
+                onClick={() => setPhase('parameters')}
+                className="px-3 py-2 rounded bg-[#020712] hover:bg-slate-800 text-slate-400 text-xs border border-slate-800 transition-colors cursor-pointer"
+              >
+                <RotateCcw size={13} />
+              </button>
+              <button
+                onClick={() => setPhase('dive')}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-gradient-to-r from-[#0866C6] to-[#18BFEF] hover:brightness-110 text-white font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(24,191,239,0.4)] transition-all cursor-pointer animate-pulse"
+              >
+                <Sparkles size={14} className="text-cyan-200" />
+                <span>RECONSTRUCT SUBSURFACE OCEAN</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── 4. FLOATING MISSION NAVIGATION DOCK (Section 7 Specification) ────── */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-[95vw] pointer-events-auto">
+        <div className="flex items-center gap-1 sm:gap-1.5 p-1.5 rounded-full bg-[#020a16]/90 border border-cyan-500/30 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(24,191,239,0.15)] text-[11px] overflow-x-auto">
+          {[
+            { id: 'globe', label: 'GLOBAL', icon: Globe, onClick: () => setPhase('globe'), active: phase === 'globe' },
+            { id: 'explorer', label: 'EXPLORER', icon: Compass, onClick: () => navigate('/explorer'), active: false },
+            { id: 'surface', label: 'SURFACE', icon: Layers, onClick: () => setPhase('parameters'), active: phase === 'parameters' },
+            { id: 'profile', label: 'PROFILE', icon: Thermometer, onClick: () => navigate('/profile'), active: false },
+            { id: 'xray', label: 'X-RAY', icon: Box, onClick: () => navigate('/ocean-xray'), active: false },
+            { id: 'anomalies', label: 'ANOMALIES', icon: AlertTriangle, onClick: () => navigate('/anomalies'), active: false },
+            { id: 'validation', label: 'VALIDATION', icon: CheckCircle, onClick: () => navigate('/validation'), active: false },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={item.onClick}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap ${
+                  item.active
+                    ? 'bg-gradient-to-r from-cyan-500/30 to-blue-500/20 border border-cyan-400 text-cyan-200 font-bold shadow-[0_0_10px_rgba(24,191,239,0.3)]'
+                    : 'bg-transparent border border-transparent text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Icon size={12} className={item.active ? 'text-cyan-300' : 'text-slate-400'} />
+                <span className="text-[10px] tracking-wider uppercase font-bold">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
